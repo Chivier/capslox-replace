@@ -97,6 +97,24 @@ chmod +x ./install-macos-karabiner.sh
 
 这条规则只作用于 IQUNIX ZONEX75，不影响内置键盘或其他外接键盘。
 
+## 外接键盘失效（复合设备）修复
+
+有些外接键盘（尤其是蓝牙模式）会把自己上报成「键盘 + 指针设备」的复合 HID 设备，例如 IQUNIX MQ80 蓝牙连接时是：
+
+```json
+{ "is_keyboard": true, "is_pointing_device": true, "vendor_id": 9306, "product_id": 33398 }
+```
+
+Karabiner 对任何带 `is_pointing_device: true` 的设备**默认关闭 "Modify events"**（避免误改鼠标），所以所有 complex modifications 在这类键盘上静默失效。日志特征是 `/var/log/karabiner/core_service.log` 里只有 `caps lock is found on ...`，没有后续的 `(grabbed)`。
+
+安装脚本现在默认会通过 `karabiner_cli --list-connected-devices` 枚举当前连接的复合键盘（排除名字像 Mouse/Trackpad/Touchpad 的设备、虚拟设备和内置键盘），自动在选中 profile 的 `devices` 里写入 `ignore: false`。**新键盘接上后重跑一次脚本即可**：
+
+```sh
+./install-macos-karabiner.sh
+```
+
+如果不想要这个行为，加 `--no-enable-composite-keyboards`。如果某个键盘的 "Modify events" 是你在 GUI 里手动关掉的（`ignore: true`），脚本会保留你的选择并打印警告，不会强行覆盖。
+
 ## 注意
 
 `Home` / `End` 在 macOS 上不是所有 App 都等同于“行首 / 行尾”。有些编辑器会把它们解释为“文档开头 / 文档结尾”。如果你想让 `Caps Lock + J/L` 更接近 macOS 常见的行首 / 行尾，可以把规则里的：

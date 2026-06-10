@@ -6,14 +6,16 @@ KARABINER_DIR="${HOME}/.config/karabiner"
 ASSETS_DIR="${KARABINER_DIR}/assets/complex_modifications"
 ASSET_FILE="${ASSETS_DIR}/capslox-basic-navigation.json"
 CONFIG_FILE="${KARABINER_DIR}/karabiner.json"
+KARABINER_CLI="/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli"
 ENABLE_RULE=1
 OPEN_APP=1
 SWAP_CONTROL_GLOBE=0
 FIX_IQUNIX_ZONEX75=0
+ENABLE_COMPOSITE_KEYBOARDS=1
 
 usage() {
   cat <<'USAGE'
-Usage: ./install-macos-karabiner.sh [--asset-only] [--no-open] [--swap-control-globe] [--fix-iqunix-zonex75]
+Usage: ./install-macos-karabiner.sh [--asset-only] [--no-open] [--swap-control-globe] [--fix-iqunix-zonex75] [--no-enable-composite-keyboards]
 
 Installs a Karabiner-Elements rule for:
   Caps Lock + E/D/S/F -> Up/Down/Left/Right
@@ -30,6 +32,11 @@ Options:
                  Right Command -> Right Option
                  Right Option  -> Right Control
                  keyboard_fn    -> Right Control
+  --no-enable-composite-keyboards
+               Do not auto-enable "Modify events" for connected external
+               keyboards that also report a pointing-device interface.
+               Karabiner ignores such composite devices by default, which
+               silently disables all rules on those keyboards.
   -h, --help    Show this help.
 USAGE
 }
@@ -47,6 +54,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --fix-iqunix-zonex75)
       FIX_IQUNIX_ZONEX75=1
+      ;;
+    --no-enable-composite-keyboards)
+      ENABLE_COMPOSITE_KEYBOARDS=0
       ;;
     -h|--help)
       usage
@@ -301,6 +311,16 @@ karabiner_installed() {
     [[ -d "/Library/Application Support/org.pqrs/Karabiner-Elements" ]]
 }
 
+# Connected-device list as JSON, in `karabiner_cli --list-connected-devices`
+# format. CAPSLOX_CONNECTED_DEVICES_JSON overrides for tests.
+connected_devices_json() {
+  if [[ -n "${CAPSLOX_CONNECTED_DEVICES_JSON:-}" ]]; then
+    printf '%s' "${CAPSLOX_CONNECTED_DEVICES_JSON}"
+  elif [[ -x "${KARABINER_CLI}" ]]; then
+    "${KARABINER_CLI}" --list-connected-devices 2>/dev/null || true
+  fi
+}
+
 mkdir -p "${ASSETS_DIR}"
 tmp_rule="$(mktemp)"
 trap 'rm -f "${tmp_rule}"' EXIT
@@ -329,7 +349,7 @@ Open Karabiner-Elements > Complex Modifications > Add rule, then enable:
   ${RULE_DESCRIPTION}
 WARN
   else
-    CONFIG_FILE="${CONFIG_FILE}" ASSET_FILE="${ASSET_FILE}" SWAP_CONTROL_GLOBE="${SWAP_CONTROL_GLOBE}" FIX_IQUNIX_ZONEX75="${FIX_IQUNIX_ZONEX75}" python3 <<'PY'
+    CONFIG_FILE="${CONFIG_FILE}" ASSET_FILE="${ASSET_FILE}" SWAP_CONTROL_GLOBE="${SWAP_CONTROL_GLOBE}" FIX_IQUNIX_ZONEX75="${FIX_IQUNIX_ZONEX75}" ENABLE_COMPOSITE_KEYBOARDS="${ENABLE_COMPOSITE_KEYBOARDS}" CONNECTED_DEVICES_JSON="$(connected_devices_json)" python3 <<'PY'
 import datetime
 import json
 import os
@@ -511,6 +531,70 @@ filtered_rules = [
 filtered_rules.extend(new_rules)
 complex_modifications["rules"] = filtered_rules
 
+# Karabiner ignores devices that report a pointing-device interface by
+# default ("Modify events" off), even when they are keyboards. Such
+# composite external keyboards (e.g. IQUNIX MQ80 over Bluetooth) silently
+# get no complex modifications. Add explicit ignore:false entries for
+# connected composite keyboards so the rules actually apply to them.
+enabled_keyboards = []
+skipped_disabled_keyboards = []
+if os.environ.get("ENABLE_COMPOSITE_KEYBOARDS") == "1":
+    import re
+
+    try:
+        connected = json.loads(os.environ.get("CONNECTED_DEVICES_JSON") or "[]")
+    except json.JSONDecodeError:
+        connected = []
+
+    pointer_name = re.compile(r"mouse|trackpad|touchpad", re.IGNORECASE)
+    devices = profile.setdefault("devices", [])
+
+    def entry_key(identifiers):
+        return (
+            identifiers.get("vendor_id"),
+            identifiers.get("product_id"),
+            bool(identifiers.get("is_keyboard")),
+            bool(identifiers.get("is_pointing_device")),
+        )
+
+    for device in connected:
+        identifiers = device.get("device_identifiers", {})
+        if not identifiers.get("is_keyboard"):
+            continue
+        if not identifiers.get("is_pointing_device"):
+            continue  # plain keyboards are modified by default
+        if identifiers.get("is_virtual_device"):
+            continue
+        if device.get("is_built_in_keyboard") or device.get("is_apple"):
+            continue
+        if "vendor_id" not in identifiers or "product_id" not in identifiers:
+            continue
+        product = device.get("product", "")
+        if pointer_name.search(product):
+            continue  # composite device that is actually a mouse-like device
+
+        existing = next(
+            (
+                item for item in devices
+                if entry_key(item.get("identifiers", {})) == entry_key(identifiers)
+            ),
+            None,
+        )
+        if existing is None:
+            devices.append({
+                "identifiers": {
+                    "is_keyboard": True,
+                    "is_pointing_device": True,
+                    "vendor_id": identifiers["vendor_id"],
+                    "product_id": identifiers["product_id"],
+                },
+                "ignore": False,
+            })
+            enabled_keyboards.append(product or str(entry_key(identifiers)))
+        elif existing.get("ignore") is True:
+            # Respect an explicit user choice, but tell them why rules fail.
+            skipped_disabled_keyboards.append(product or str(entry_key(identifiers)))
+
 if os.environ.get("SWAP_CONTROL_GLOBE") == "1":
     simple_modifications = profile.setdefault("simple_modifications", [])
     if not isinstance(simple_modifications, list):
@@ -589,6 +673,13 @@ if os.environ.get("SWAP_CONTROL_GLOBE") == "1":
     print("Enabled built-in keyboard Fn/Globe <-> Control rule")
 if os.environ.get("FIX_IQUNIX_ZONEX75") == "1":
     print("Enabled IQUNIX ZONEX75 right-side modifier normalization rule")
+for name in enabled_keyboards:
+    print(f"Enabled 'Modify events' for composite keyboard: {name}")
+for name in skipped_disabled_keyboards:
+    print(
+        f"Warning: '{name}' has 'Modify events' explicitly disabled in Karabiner; "
+        "Capslox rules will not work on it until you re-enable it."
+    )
 if backup_path:
     print(f"Backup: {backup_path}")
 elif created_config:

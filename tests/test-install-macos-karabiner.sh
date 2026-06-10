@@ -128,6 +128,39 @@ def has_mapping(from_value, to_value):
     )
 
 
+capslox_rule = next(
+    (
+        rule for rule in rules
+        if rule.get("description") == "Capslox Basic Navigation (CapsLock + E/D/S/F/I/K/J/L)"
+    ),
+    None,
+)
+assert capslox_rule, "Capslox Basic Navigation rule should be enabled"
+
+
+def capslox_mapping(from_key):
+    for manipulator in capslox_rule.get("manipulators", []):
+        if manipulator.get("from", {}).get("key_code") == from_key:
+            return manipulator.get("to")
+    return None
+
+
+assert capslox_mapping("i") == [
+    {"key_code": "page_up"},
+], "Caps Lock + I should emit Page Up"
+
+assert capslox_mapping("k") == [
+    {"key_code": "page_down"},
+], "Caps Lock + K should emit Page Down"
+
+assert capslox_mapping("j") == [
+    {"key_code": "home"},
+], "Caps Lock + J should emit Home"
+
+assert capslox_mapping("l") == [
+    {"key_code": "end"},
+], "Caps Lock + L should emit End"
+
 assert not has_mapping(
     {"apple_vendor_top_case_key_code": "keyboard_fn"},
     {"key_code": "left_control"},
