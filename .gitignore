@@ -1,1 +1,6 @@
 test
+.build/
+.swiftpm/
+dist/
+docs/superpowers/
+docs/nana-shots/

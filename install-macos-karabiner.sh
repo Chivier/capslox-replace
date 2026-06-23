@@ -19,7 +19,7 @@ Usage: ./install-macos-karabiner.sh [--asset-only] [--no-open] [--swap-control-g
 
 Installs a Karabiner-Elements rule for:
   Caps Lock + E/D/S/F -> Up/Down/Left/Right
-  Caps Lock + I/K/J/L -> PageUp/PageDown/Home/End
+  Caps Lock + I/K/J/L -> PageUp/PageDown/LineStart/LineEnd
 
 Options:
   --asset-only  Only write the complex-modification JSON asset; do not edit karabiner.json.
@@ -105,15 +105,7 @@ write_rule_json() {
                 "value": 0
               }
             }
-          ],
-          "to_if_alone": [
-            {
-              "key_code": "caps_lock"
-            }
-          ],
-          "parameters": {
-            "basic.to_if_alone_timeout_milliseconds": 250
-          }
+          ]
         },
         {
           "type": "basic",
@@ -265,7 +257,10 @@ write_rule_json() {
           },
           "to": [
             {
-              "key_code": "home"
+              "key_code": "left_arrow",
+              "modifiers": [
+                "left_command"
+              ]
             }
           ],
           "conditions": [
@@ -288,7 +283,10 @@ write_rule_json() {
           },
           "to": [
             {
-              "key_code": "end"
+              "key_code": "right_arrow",
+              "modifiers": [
+                "left_command"
+              ]
             }
           ],
           "conditions": [

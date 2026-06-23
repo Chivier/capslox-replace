@@ -137,6 +137,16 @@ capslox_rule = next(
 )
 assert capslox_rule, "Capslox Basic Navigation rule should be enabled"
 
+capslock_manipulator = next(
+    (
+        manipulator for manipulator in capslox_rule.get("manipulators", [])
+        if manipulator.get("from", {}).get("key_code") == "caps_lock"
+    ),
+    None,
+)
+assert capslock_manipulator, "Caps Lock layer manipulator should exist"
+assert "to_if_alone" not in capslock_manipulator, "Caps Lock alone should not toggle Caps Lock"
+
 
 def capslox_mapping(from_key):
     for manipulator in capslox_rule.get("manipulators", []):
@@ -154,12 +164,12 @@ assert capslox_mapping("k") == [
 ], "Caps Lock + K should emit Page Down"
 
 assert capslox_mapping("j") == [
-    {"key_code": "home"},
-], "Caps Lock + J should emit Home"
+    {"key_code": "left_arrow", "modifiers": ["left_command"]},
+], "Caps Lock + J should move to line start on macOS"
 
 assert capslox_mapping("l") == [
-    {"key_code": "end"},
-], "Caps Lock + L should emit End"
+    {"key_code": "right_arrow", "modifiers": ["left_command"]},
+], "Caps Lock + L should move to line end on macOS"
 
 assert not has_mapping(
     {"apple_vendor_top_case_key_code": "keyboard_fn"},
