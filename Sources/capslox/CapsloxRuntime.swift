@@ -34,6 +34,7 @@ final class CapsloxRuntime {
 
     func start() -> Bool {
         requestAccessibilityIfNeeded()
+        requestInputMonitoringIfNeeded()
 
         let eventTap = CapsloxEventTap(capsLockTapThresholdMilliseconds: capsLockTapThresholdMilliseconds)
         guard eventTap.start() else {
@@ -585,4 +586,15 @@ private func requestAccessibilityIfNeeded() {
     let promptKey = "AXTrustedCheckOptionPrompt"
     let options = [promptKey: true] as CFDictionary
     _ = AXIsProcessTrustedWithOptions(options)
+}
+
+private func requestInputMonitoringIfNeeded() {
+    // Mirrors the Accessibility prompt above: CapsMov reads the physical Caps
+    // Lock state through IOHID, which requires Input Monitoring permission.
+    // Requesting access surfaces the native Input Monitoring prompt on first run
+    // instead of silently failing, so users are guided to both permissions.
+    guard IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) != kIOHIDAccessTypeGranted else {
+        return
+    }
+    _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
 }

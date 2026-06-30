@@ -31,6 +31,9 @@ codesign --verify --deep --strict "$APP_PATH"
 bash -n "$ROOT_DIR/packaging/Install Autostart.command"
 bash -n "$ROOT_DIR/packaging/Uninstall Autostart.command"
 ! grep -q "<key>KeepAlive</key>" "$ROOT_DIR/packaging/Install Autostart.command"
+grep -q "Accessibility" "$ROOT_DIR/packaging/Install Autostart.command"
+grep -q "Input Monitoring" "$ROOT_DIR/packaging/Install Autostart.command"
+grep -q "Privacy_ListenEvent" "$ROOT_DIR/packaging/Install Autostart.command"
 
 "$ROOT_DIR/scripts/build-dmg.sh" --output "$DMG_PATH"
 

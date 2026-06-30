@@ -50,9 +50,9 @@ public enum CapsloxPresentation {
 
     public static func secureInputDetail(for status: SecureInputStatus) -> String {
         if let owner = status.owner {
-            return "Keyboard input is blocked by Secure Input from \(owner.name)."
+            return "\(owner.name) is using macOS Secure Input, so CapsMov can't read keys for now. This is expected while a password field is focused—move focus out of it (or quit \(owner.name)) and CapsMov resumes on its own."
         }
-        return "macOS still reports Secure Input from pid \(status.pid), but that process is no longer running. Log out and back in if CapsMov still cannot receive keys."
+        return "macOS still reports Secure Input from pid \(status.pid), which has already exited—a known macOS glitch. It usually clears by itself; if CapsMov still can't read keys, lock the screen or log out and back in to reset it."
     }
 
     public static func secureInputActionTitle(for status: SecureInputStatus) -> String {

@@ -80,4 +80,15 @@ launchctl kickstart -k "gui/$(id -u)/$LABEL"
 
 echo "Installed CapsMov to $INSTALL_APP"
 echo "Installed autostart LaunchAgent at $PLIST_PATH"
-echo "Grant Accessibility and Input Monitoring permission to $INSTALL_APP if macOS prompts for it."
+echo ""
+echo "CapsMov needs TWO permissions to work. Grant both for CapsMov:"
+echo "  1. Accessibility     - lets CapsMov rewrite Caps Lock key combos."
+echo "  2. Input Monitoring  - lets CapsMov read the physical Caps Lock state."
+echo ""
+echo "macOS should prompt for each on first launch. If it does not, add"
+echo "$INSTALL_APP manually in System Settings > Privacy & Security."
+echo "Opening both panes now..."
+
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility" >/dev/null 2>&1 || true
+sleep 1
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent" >/dev/null 2>&1 || true
